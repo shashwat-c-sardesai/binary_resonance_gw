@@ -15,8 +15,8 @@ from scipy.integrate import solve_ivp
 
 
 # Using SI units
-G = 6.011e-11
-c = 3e9
+G = 6.674e-11
+c = 3e8
 day = 3600*24
 H0 = 2.27e-18
 
