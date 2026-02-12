@@ -551,7 +551,7 @@ class binary_evolution():
             INTGL.append(I)
 
         INTGL = np.array(INTGL).transpose(1,2,3,4,0) # Shape should be 6 x 2 x 5 x n_freq x n_tobs
-        II = sint.cumulative_trapezoid(INTGL, x=t_eval, initial=0, axis=-1)
+        II = sint.cumulative_trapezoid(INTGL, x=self.time, initial=0, axis=-1)
         gam_aid_f = np.einsum('abt,bdift-> adift', phis, II)
 
         return gam_aid_f
@@ -564,7 +564,7 @@ class binary_evolution():
         Useful for calculating Eqn 106 quickly
         """
         gam0 = self.g0[0]
-        Ta = np.array([timing_data(tt, gam0[:,tt], self.masses) for tt in range(len(t_eval))]).T
+        Ta = np.array([timing_data(tt, gam0[:,tt], self.masses) for tt in range(len(self.time))]).T
         g1_aidf = self.gamma1_aidf()
 
         G1_idf = np.einsum('at,adift->dift', Ta, g1_aidf)
