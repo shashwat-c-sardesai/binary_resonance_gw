@@ -76,7 +76,7 @@ def E_mat(gamma, args):
     r_hat = [sp.cos(Omg)*sp.cos(omg+f) - sp.cos(inc)*sp.sin(Omg)*sp.sin(omg+f), sp.sin(Omg)*sp.cos(omg+f) + sp.cos(inc)*sp.cos(Omg)*sp.sin(omg+f), sp.sin(inc)*sp.sin(omg+f)]
     theta_hat = [-sp.cos(Omg)*sp.sin(omg+f) - sp.cos(inc)*sp.sin(Omg)*sp.cos(omg+f), -sp.sin(Omg)*sp.sin(omg+f) + sp.cos(inc)*sp.cos(Omg)*sp.cos(omg+f), sp.sin(inc)*sp.cos(omg+f)]
     z_hat = [sp.sin(inc)*sp.sin(Omg), -sp.sin(inc)*sp.cos(Omg), sp.cos(inc)]
-    E = sp.Matrix([r_hat, theta_hat, z_hat]).T
+    E = sp.Matrix([r_hat, theta_hat, z_hat])
 
     return E
 
@@ -140,7 +140,7 @@ def e_ab(gamma):
              -np.sin(inc)*np.cos(Omg),
              np.cos(inc)]
 
-    return np.array([r_hat, theta_hat, z_hat]).T
+    return np.array([r_hat, theta_hat, z_hat])
 
 def r_i(gamma):
     """
