@@ -144,7 +144,8 @@ def e_ab(gamma):
 
 def r_i(gamma):
     """
-    Orbital separation vector between the two bodies (Might be wrong)
+    Orbital separation vector between the
+    two bodies (In Cartesian coords)
     """
     p,e,inc,Omg,omg,f = gamma
 
@@ -154,21 +155,21 @@ def r_i(gamma):
     r_y = r * (sp.cos(f+omg)*sp.sin(Omg) + sp.sin(f+omg)*sp.cos(inc)*sp.cos(Omg))
     r_z = r * sp.sin(f+omg)*sp.sin(inc)
 
-    r_r = sp.sqrt(r_x**2 + r_y**2)
-    r_theta = sp.atan(r_y/r_x)
+    #r_r = sp.sqrt(r_x**2 + r_y**2)
+    #r_theta = sp.atan(r_y/r_x)
 
-    return sp.Array([r_r, r_theta, r_z])
+    return sp.Array([r_x, r_y, r_z])
 
 M = M_mat(gamma, args)
 E = E_mat(gamma, args)
 acc = det_evo(t, gamma, args)
 F_0 = sp.Array(np.einsum('ij,jk,k->i',M,E,acc, optimize="optimal")) + sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
-F0_ab = F_0.diff(gamma)
+F0_ab = sp.transpose(F_0.diff(gamma))
 F0_ab_np = sp.lambdify([t,*gamma, *args], F0_ab, modules='numpy')
 
 F_0_nr = sp.Array(np.einsum('ij,jk,k->i',M,E,np.zeros(3), optimize="optimal")) + sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
-F0_ab_nr = F_0_nr.diff(gamma)
-F0_ab_nr = sp.lambdify([t,*gamma, *args], F0_ab_nr, modules='numpy')
+F0_ab_nrel = sp.transpose(F_0_nr.diff(gamma))
+F0_ab_nr = sp.lambdify([t,*gamma, *args], F0_ab_nrel, modules='numpy')
 
 def h_ij_a():
     """
@@ -263,7 +264,8 @@ def e_mat_across_t(gammas):
 
 def r_across_t(gammas):
     """
-    Orbital separation vector between the two bodies (Might be wrong)
+    Orbital separation vector between the
+    two bodies (In Cartesian coords)
     """
     p,e,inc,Omg,omg,f = gammas
 
@@ -271,10 +273,10 @@ def r_across_t(gammas):
     r_x = r * (np.cos(f+omg)*np.cos(Omg) - np.sin(f+omg)*np.cos(inc)*np.sin(Omg))
     r_y = r * (np.cos(f+omg)*np.sin(Omg) + np.sin(f+omg)*np.cos(inc)*np.cos(Omg))
     r_z = r * np.sin(f+omg)*np.sin(inc)
-    r_r = np.sqrt(r_x**2 + r_y**2)
-    r_theta = np.arctan(r_y/r_x)
+    #r_r = np.sqrt(r_x**2 + r_y**2)
+    #r_theta = np.arctan(r_y/r_x)
 
-    return np.array([r_r, r_theta, r_z])
+    return np.array([r_x, r_y, r_z])
 
 def ddot_h_ad_ij(t_eval,f):
     """
