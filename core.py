@@ -43,16 +43,13 @@ freq = sp.symbols(r'\nu')
 
 M_tot = m1+m2
 
+## Sympy functions
 
-# In[3]:
-
-
-# Trying to evolve gamma_0, gamma_1, phi simultaneously
 def M_mat(gamma, args):
     p,e,inc,Omg,omg,f = gamma
     m1,m2 = args
     M_tot = m1+m2
-
+    
     M = sp.Matrix(np.zeros((6,3)))
     M[0,1] = 2*p/(1 + e*sp.cos(f))
     M[1,0] = sp.sin(f)
@@ -72,11 +69,11 @@ def E_mat(gamma, args):
     p,e,inc,Omg,omg,f = gamma
     m1,m2 = args
     M_tot = m1+m2
-
+    
     r_hat = [sp.cos(Omg)*sp.cos(omg+f) - sp.cos(inc)*sp.sin(Omg)*sp.sin(omg+f), sp.sin(Omg)*sp.cos(omg+f) + sp.cos(inc)*sp.cos(Omg)*sp.sin(omg+f), sp.sin(inc)*sp.sin(omg+f)]
     theta_hat = [-sp.cos(Omg)*sp.sin(omg+f) - sp.cos(inc)*sp.sin(Omg)*sp.cos(omg+f), -sp.sin(Omg)*sp.sin(omg+f) + sp.cos(inc)*sp.cos(Omg)*sp.cos(omg+f), sp.sin(inc)*sp.cos(omg+f)]
     z_hat = [sp.sin(inc)*sp.sin(Omg), -sp.sin(inc)*sp.cos(Omg), sp.cos(inc)]
-    E = sp.Matrix([r_hat, theta_hat, z_hat])
+    E = sp.Matrix([r_hat, theta_hat, z_hat]).T
 
     return E
 
@@ -85,18 +82,62 @@ def det_evo(t, gamma, args):
     p,e,inc,Omg,omg,f = gamma
     m1,m2 = args
     M_tot = m1+m2
-
+    
     eta = m1*m2/M_tot**2
     P = sp.sqrt(4*sp.pi**2/G/M_tot * (p/(1-e**2))**3)
     g = sp.sqrt(1-e**2)
     vp = (2*sp.pi*G*M_tot/P)**(1/3)
-
+    
     F_r = (2*sp.pi/P)**2 * vp**2/g**8 * (1 + e*sp.cos(f))**3 * (3 - eta - e**2*(1+3*eta) + e*(2-4*eta)*sp.cos(f) + e**2 * (8-eta)*sp.sin(f)**2/2)
     F_theta = (2*sp.pi/P)**2 * 2*e*vp**2/g**8 *sp.sin(f) * (1+e*sp.cos(f))**4 * (2-eta)
     F_l = 0
-
+    
     acc = G*M_tot/c**4 * sp.Array([F_r, F_theta, F_l])
     return acc
+    
+def r_i(gamma):
+    """
+    Orbital separation vector between the two bodies (Might be wrong)
+    """
+    p,e,inc,Omg,omg,f = gamma
+
+    r = p/(1 + e*sp.cos(f))
+
+    r_x = r * (sp.cos(f+omg)*sp.cos(Omg) - sp.sin(f+omg)*sp.cos(inc)*sp.sin(Omg))
+    r_y = r * (sp.cos(f+omg)*sp.sin(Omg) + sp.sin(f+omg)*sp.cos(inc)*sp.cos(Omg))
+    r_z = r * sp.sin(f+omg)*sp.sin(inc)
+
+    #r_r = sp.sqrt(r_x**2 + r_y**2)
+    #r_theta = sp.atan(r_y/r_x)
+
+    return sp.Array([r_x, r_y, r_z])
+
+def dels(t, gamma, args):
+    m1,m2 = args
+    p,e,inc,Omg,omg,f = gamma
+    E0 = 2*sp.atan(sp.sqrt((1-e)/(1+e)) * sp.tan(f/2))
+
+    del_r = m2*p/c*sp.sin(inc)/(1-e**2)/(m1+m2)*( (sp.cos(E0)-e)*sp.sin(omg) + sp.sqrt(1-e**2)*sp.sin(E0)*sp.cos(omg) )
+    del_s = -2*G*m2/c**3*sp.log(1 - e*sp.cos(E0) - sp.sin(inc)*(sp.sin(omg)*(sp.cos(E0)-e) + sp.sqrt(1-e**2)*sp.cos(omg)*sp.sin(E0)))
+    del_e = 1/c**2*sp.sqrt(G*e**2*p/(1-e**2)) * m2*(m1+2*m2)/(m1+m2)**(3/2) * sp.sin(E0)
+
+    return del_r + del_s + del_e
+T_a = dels(t,gamma,args).diff(gamma)
+timing_data = sp.lambdify([t,gamma, args], T_a, modules='numpy')
+
+M = M_mat(gamma, args)
+#Since acc is already in cylindrical coords, don't need e_mat
+acc = det_evo(t, gamma, args)
+F_0 = sp.Array(np.einsum('ij,j->i',M,acc, optimize="optimal")) + sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
+F0_ab = sp.transpose(F_0.diff(gamma))
+F0_ab_np = sp.lambdify([t,*gamma, *args], F0_ab, modules='numpy')
+
+F_0_nr = sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
+F0_ab_nrel = sp.transpose(F_0_nr.diff(gamma))
+F0_ab_nr = sp.lambdify([t,*gamma, *args], F0_ab_nrel, modules='numpy')
+
+
+## Numpy equations
 
 def Omega_gw(f):
     f_peak = 1.e-4
@@ -129,7 +170,7 @@ def e_ab(gamma):
     From Eqn (2) & Eqn (5)
     """
     p,e,inc,Omg,omg,f = gamma
-
+    
     r_hat = [np.cos(Omg)*np.cos(omg+f) - np.cos(inc)*np.sin(Omg)*np.sin(omg+f),
              np.sin(Omg)*np.cos(omg+f) + np.cos(inc)*np.cos(Omg)*np.sin(omg+f),
              np.sin(inc)*np.sin(omg+f)]
@@ -139,37 +180,8 @@ def e_ab(gamma):
     z_hat = [np.sin(inc)*np.sin(Omg),
              -np.sin(inc)*np.cos(Omg),
              np.cos(inc)]
-
+    
     return np.array([r_hat, theta_hat, z_hat])
-
-def r_i(gamma):
-    """
-    Orbital separation vector between the
-    two bodies (In Cartesian coords)
-    """
-    p,e,inc,Omg,omg,f = gamma
-
-    r = p/(1 + e*sp.cos(f))
-
-    r_x = r * (sp.cos(f+omg)*sp.cos(Omg) - sp.sin(f+omg)*sp.cos(inc)*sp.sin(Omg))
-    r_y = r * (sp.cos(f+omg)*sp.sin(Omg) + sp.sin(f+omg)*sp.cos(inc)*sp.cos(Omg))
-    r_z = r * sp.sin(f+omg)*sp.sin(inc)
-
-    #r_r = sp.sqrt(r_x**2 + r_y**2)
-    #r_theta = sp.atan(r_y/r_x)
-
-    return sp.Array([r_x, r_y, r_z])
-
-M = M_mat(gamma, args)
-E = E_mat(gamma, args)
-acc = det_evo(t, gamma, args)
-F_0 = sp.Array(np.einsum('ij,jk,k->i',M,E,acc, optimize="optimal")) + sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
-F0_ab = sp.transpose(F_0.diff(gamma))
-F0_ab_np = sp.lambdify([t,*gamma, *args], F0_ab, modules='numpy')
-
-F_0_nr = sp.Array(np.einsum('ij,jk,k->i',M,E,np.zeros(3), optimize="optimal")) + sp.Array([0,0,0,0,0,sp.sqrt(G*M_tot/p**3)*(1+e*sp.cos(f))**2])
-F0_ab_nrel = sp.transpose(F_0_nr.diff(gamma))
-F0_ab_nr = sp.lambdify([t,*gamma, *args], F0_ab_nrel, modules='numpy')
 
 def h_ij_a():
     """
@@ -220,7 +232,7 @@ def F_aij_GW(t, gamma, args):
     M_ij = M_ab(gamma, args)
 
     return 0.5*np.einsum('ab, bi, j -> aij', M_ij, e_ij, r_c)
-
+    
 def M_mat_across_t(gammas, args):
     """
     From Eqn (4)
@@ -259,13 +271,12 @@ def e_mat_across_t(gammas):
     E[0,2,:] = np.sin(inc)*np.sin(Omg)
     E[1,2,:] = -np.sin(inc)*np.cos(Omg)
     E[2,2,:] = np.cos(inc)
-
+    
     return E
 
 def r_across_t(gammas):
     """
-    Orbital separation vector between the
-    two bodies (In Cartesian coords)
+    Orbital separation vector between the two bodies (Might be wrong)
     """
     p,e,inc,Omg,omg,f = gammas
 
@@ -310,7 +321,41 @@ def F_aij_GW_across_t(t_eval, gammas, args):
 
     return 0.5*np.einsum('abt, bit, jt -> aijt', M_ij, e_ij, r_c)
 
+"""
 def gamma0_phi_dot(t, vec, args):
+
+    gamma0 = vec[:6]
+    phi = vec[6:]
+    phi = phi.reshape((6,6))
+
+    p,e,inc,Omg,omg,f = gamma0
+
+    m1,m2 = args
+    M_tot = m1+m2
+    
+    M = M_mat(gamma0, args)
+    E = E_mat(gamma0, args)
+
+    eta = m1*m2/M_tot**2
+    P = np.sqrt(4*np.pi**2/G/M_tot * (p/(1-e**2))**3)
+    g = np.sqrt(1-e**2)
+    vp = (2*np.pi*G*M_tot/P)**(1/3)
+    r = p/(1+e*np.cos(f))
+    
+    F_r = (2*np.pi/P)**2 * vp**2/g**8 * (1 + e*np.cos(f))**3 * (3 - eta - e**2*(1+3*eta) + e*(2-4*eta)*np.cos(f) + e**2 * (8-eta)*np.sin(f)**2/2)
+    F_theta = (2*np.pi/P)**2 * 2*e*vp**2/g**8 *np.sin(f) * (1+e*np.cos(f))**4 * (2-eta)
+    F_l = 0
+    acc = G*M_tot/c**4 * np.array([F_r, F_theta, F_l])
+    F_0 = np.einsum('ij,jk,k->i',M,E,acc)
+    F_0[-1] += np.sqrt(G*M_tot/p**3)*(1+e*np.cos(f))**2
+
+    F_0_ab = F0_ab_np(t, *gamma0, *args)
+    phidot = F_0_ab @ phi
+
+    return np.array([*F_0, *phidot.flatten()])
+"""
+
+def gamma0_phi_dot_corr(t, vec, args):
     """
     Evolve the zero order orbital elements and the fundamental matrix
     assuming a relativistic binary (dense fundamental matrix)
@@ -324,31 +369,30 @@ def gamma0_phi_dot(t, vec, args):
 
     m1,m2 = args
     M_tot = m1+m2
-
+    
     M = M_mat(gamma0, args)
-    E = E_mat(gamma0, args)
-
+    #E = E_mat(gamma0, args)
+    # Not required since forces are in cylindrical coords
+    
     eta = m1*m2/M_tot**2
     P = np.sqrt(4*np.pi**2/G/M_tot * (p/(1-e**2))**3)
     g = np.sqrt(1-e**2)
     vp = (2*np.pi*G*M_tot/P)**(1/3)
     r = p/(1+e*np.cos(f))
-
+    
     F_r = (2*np.pi/P)**2 * vp**2/g**8 * (1 + e*np.cos(f))**3 * (3 - eta - e**2*(1+3*eta) + e*(2-4*eta)*np.cos(f) + e**2 * (8-eta)*np.sin(f)**2/2)
     F_theta = (2*np.pi/P)**2 * 2*e*vp**2/g**8 *np.sin(f) * (1+e*np.cos(f))**4 * (2-eta)
     F_l = 0
     acc = G*M_tot/c**4 * np.array([F_r, F_theta, F_l])
-    F_0 = np.einsum('ij,jk,k->i',M,E,acc)
+    F_0 = np.einsum('ij,j->i',M,acc)
     F_0[-1] += np.sqrt(G*M_tot/p**3)*(1+e*np.cos(f))**2
 
-    F_0_ab = F0_ab_np(t, *gamma0, *args).T
+    F_0_ab = F0_ab_np(t, *gamma0, *args)
     phidot = F_0_ab @ phi
 
     return np.array([*F_0, *phidot.flatten()])
 
-
-# In[4]:
-
+## Non-relativistic equations
 
 def gamma0_dot_nr(t, vec, args):
     gamma0 = vec
@@ -356,7 +400,7 @@ def gamma0_dot_nr(t, vec, args):
 
     m1,m2 = args
     M_tot = m1+m2
-
+    
     M = M_mat(gamma0, args)
     E = E_mat(gamma0, args)
 
@@ -364,7 +408,7 @@ def gamma0_dot_nr(t, vec, args):
     P = np.sqrt(4*np.pi**2/G/M_tot * (p/(1-e**2))**3)
     g = np.sqrt(1-e**2)
     vp = (2*np.pi*G*M_tot/P)**(1/3)
-
+    
     F0 = np.array([0,0,0,0,0,np.sqrt(G*M_tot/p**3)*(1+e*np.cos(f))**2])
 
     return F0
@@ -373,7 +417,7 @@ def phi_nr(t_eval, gammas, args):
 
     m1,m2 = args
     M_tot = m1+m2
-
+    
     p,e,inc,Omg,omg = gammas[:5,0]
     f = gammas[5,:]
     f0 = f[0]
@@ -393,9 +437,7 @@ def phi_nr(t_eval, gammas, args):
 
     return phi
 
-
-# In[5]:
-
+## Supplemental equations
 
 def gamma_1_aid_freq(t_eval, gamma, args, freqs):
 
@@ -403,7 +445,7 @@ def gamma_1_aid_freq(t_eval, gamma, args, freqs):
     M_tot = m1+m2
     p,e,inc,Omg,omg,f = gamma
 
-    result_0 = solve_ivp(gamma0_phi_dot, (0,t_eval[-1]), np.array([*gamma,*np.eye(6).flatten()]), args=[args], t_eval=t_eval)
+    result_0 = solve_ivp(gamma0_phi_dot_corr, (0,t_eval[-1]), np.array([*gamma,*np.eye(6).flatten()]), args=[args], t_eval=t_eval)
     phis = result_0.y[6:,:].reshape((6,6,len(t_eval)))
     gamma0s = result_0.y[:6,:]
 
@@ -421,26 +463,13 @@ def gamma_1_aid_freq(t_eval, gamma, args, freqs):
 
     return gam_aid_f
 
-def dels(t, gamma, args):
-    m1,m2 = args
-    p,e,inc,Omg,omg,f = gamma
-    E0 = 2*sp.atan(sp.sqrt((1-e)/(1+e)) * sp.tan(f/2))
-
-    del_r = m2*p/c*sp.sin(inc)/(1-e**2)/(m1+m2)*( (sp.cos(E0)-e)*sp.sin(omg) + sp.sqrt(1-e**2)*sp.sin(E0)*sp.cos(omg) )
-    del_s = -2*G*m2/c**3*sp.log(1 - e*sp.cos(E0) - sp.sin(inc)*(sp.sin(omg)*(sp.cos(E0)-e) + sp.sqrt(1-e**2)*sp.cos(omg)*sp.sin(E0)))
-    del_e = 1/c**2*sp.sqrt(G*e**2*p/(1-e**2)) * m2*(m1+2*m2)/(m1+m2)**(3/2) * sp.sin(E0)
-
-    return del_r + del_s + del_e
-T_a = dels(t,gamma,args).diff(gamma)
-timing_data = sp.lambdify([t,gamma, args], T_a, modules='numpy')
-
 def GAM1_idf(t_eval, gamma, args, freqs):
 
     m1,m2 = args
     M_tot = m1+m2
     p,e,inc,Omg,omg,f = gamma
 
-    result_0 = solve_ivp(gamma0_phi_dot, (0,t_eval[-1]), np.array([*gamma,*np.eye(6).flatten()]), args=[args], t_eval=t_eval)
+    result_0 = solve_ivp(gamma0_phi_dot_corr, (0,t_eval[-1]), np.array([*gamma,*np.eye(6).flatten()]), args=[args], t_eval=t_eval)
     phis = result_0.y[6:,:].reshape((6,6,len(t_eval)))
     gamma0s = result_0.y[:6,:]
 
@@ -459,9 +488,7 @@ def GAM1_idf(t_eval, gamma, args, freqs):
 
     return g1_idf
 
-
-# In[6]:
-
+## Binary evolution class
 
 class binary_evolution():
     """
@@ -484,6 +511,7 @@ class binary_evolution():
     def __init__(self, t_eval, gamma, args, freqs, gw_func, sigma, rel=False, seed=None):
 
         self.nr = np.random.default_rng(seed)
+        
         self.time = t_eval
         self.err = sigma
         self.initial_params = gamma
@@ -491,9 +519,13 @@ class binary_evolution():
         self.freqs = freqs
         self.relativistic = rel
 
+        # F0_ab diff matrix function
+        self.F0_ab = F0_ab_np
+        self.F0_ab_nr = F0_ab_nr
+
         # Fixed values
         self.g0 = self.zero_order_evo()
-        self.cov_tensor = self.cov_mat_constructor()
+        self.cov_tensor = self._cov_mat_constructor()
 
         # GWB dependent values
         self.gw = gw_func
@@ -524,7 +556,7 @@ class binary_evolution():
         """
         if self.relativistic:
             print('Assuming relativistic binary, dense fundamental matrix')
-            result = solve_ivp(gamma0_phi_dot, (0,self.time[-1]), np.array([*self.initial_params,*np.eye(6).flatten()]),
+            result = solve_ivp(gamma0_phi_dot_corr, (0,self.time[-1]), np.array([*self.initial_params,*np.eye(6).flatten()]),
                                args=[self.masses], t_eval=self.time)
             gamma0 = result.y[:6,:]
             phis = result.y[6:,:].reshape((6,6,len(t_eval)))
@@ -536,7 +568,7 @@ class binary_evolution():
 
         return gamma0, phis
 
-    def gamma1_aidf(self):
+    def _gamma1_aidf(self):
         """
         Construct the intermediate tensor used for the covariance
         matrix gamma_1^alpha,i,d for multiple frequencies
@@ -546,19 +578,19 @@ class binary_evolution():
 
         F_aijgw = F_aij_GW_across_t(self.time, gam0, self.masses)
         ddot_h_tf = np.array([ddot_h_ad_ij(self.time,ff) for ff in self.freqs])
-
+        
         INTGL = []
         for tt in range(len(self.time)):
             I = np.einsum('ab,blm,fdilm-> adif', np.linalg.inv(phis[...,tt]), F_aijgw[...,tt], ddot_h_tf[...,tt])
             INTGL.append(I)
-
+    
         INTGL = np.array(INTGL).transpose(1,2,3,4,0) # Shape should be 6 x 2 x 5 x n_freq x n_tobs
         II = sint.cumulative_trapezoid(INTGL, x=self.time, initial=0, axis=-1)
         gam_aid_f = np.einsum('abt,bdift-> adift', phis, II)
 
         return gam_aid_f
 
-    def cov_mat_constructor(self):
+    def _cov_mat_constructor(self):
         """
         Takes the $gamma_1^alpha,i,d,nu$ values and tensor
         sums them with the timing mapping.
@@ -567,7 +599,7 @@ class binary_evolution():
         """
         gam0 = self.g0[0]
         Ta = np.array([timing_data(tt, gam0[:,tt], self.masses) for tt in range(len(self.time))]).T
-        g1_aidf = self.gamma1_aidf()
+        g1_aidf = self._gamma1_aidf()
 
         G1_idf = np.einsum('at,adift->dift', Ta, g1_aidf)
 
@@ -590,7 +622,7 @@ class binary_evolution():
         Eqn 62, can either sum across all frequencies or get frequency dependent
         1st order corrections
         """
-        g1_aidf = self.gamma1_aidf()
+        g1_aidf = self._gamma1_aidf()
         A = self.rand_A()
         if sum_freq:
             return np.einsum('dif,adift-> at', A, g1_aidf)
@@ -608,6 +640,10 @@ class binary_evolution():
         return np.einsum('dift,fid,difT-> tT', GAM1_idf, A, GAM1_idf) + np.diag(self.err)
 
     def time_delay_draw(self, sum_freq=True):
+        """
+        Calculate the total time delay from the parameters
+        Includes Shapiro, Romer, and Einstein delays
+        """
 
         m1,m2 = self.masses
         g0 = self.g0[0]
@@ -624,12 +660,50 @@ class binary_evolution():
         else:
             g1_f = self.rand_g1_draw(sum_freq=False)
             g_tot_f = g1_f + g0[:,None,:]
-
+            
             p,e,inc,Omg,omg,f = g_tot_f
             E0 = 2*np.arctan(np.sqrt((1-e)/(1+e)) * np.tan(f/2))
             del_r = m2*p/c*np.sin(inc)/(1-e**2)/(m1+m2)*( (np.cos(E0)-e)*np.sin(omg) + np.sqrt(1-e**2)*np.sin(E0)*np.cos(omg) )
             del_s = -2*G*m2/c**3*np.log(1 - e*np.cos(E0) - np.sin(inc)*(np.sin(omg)*(np.cos(E0)-e) + np.sqrt(1-e**2)*np.cos(omg)*np.sin(E0)))
             del_e = 1/c**2*np.sqrt(G*e**2*p/(1-e**2)) * m2*(m1+2*m2)/(m1+m2)**(3/2) * np.sin(E0)
-
+        
         return del_r + del_s + del_e
 
+    def det_acc(self, func):
+        """
+        Set up a deterministic acceleration in terms of the
+        basis vectors, as a function of time and 0th order
+        perturbations.
+        Needs to be in the form [r_x, r_y, r_z]
+        """
+        return func(self.time, self.g0)
+
+    def det_F1(self, func):
+        """
+        Deterministic correction F1
+        Eqn (11)
+        """
+        a = self.det_acc(func)
+        gamma0 = self.g0[0]
+        args = self.masses
+        M = M_mat_across_t(gamma0, args)
+        E = e_mat_across_t(gamma0)
+
+        return np.einsum('ait,ijt,jt->at', M, E, a)
+
+    def det_g1(self, func):
+        """
+        Deterministic evolution of the 1st order corrections
+        From Eqn (38)-(42)
+        """
+        F1_a = self.det_F1(func)
+        phis = self.g0[1]
+
+        I = []
+        for tt in range(len(self.time)):
+            I.append(np.linalg.solve(phis[...,tt],F1_a[:,tt]))
+        I = np.array(I).T
+        
+        INTGL = sint.cumulative_trapezoid(I, axis=-1, initial=0)
+
+        return np.einsum('abt,bt->at',phis,INTGL)
