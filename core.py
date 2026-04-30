@@ -513,7 +513,7 @@ class binary_evolution():
         self.nr = np.random.default_rng(seed)
         
         self.time = t_eval
-        self.err = sigma
+        self.err = sigma        #err is sigma, not sigma^2
         self.initial_params = gamma
         self.masses = args
         self.freqs = freqs
@@ -629,16 +629,26 @@ class binary_evolution():
         else:
             return np.einsum('dif,adift-> aft', A, g1_aidf)
 
-    #### This needs to be corrected, and is not the correct format of Eqn 106 #####
+    #### This should be the correct version of an expanded Eqn 106 #####
     def covariance_matrix(self):
         """
         Construct the total covariance matrix for random
         Eqn 106
         """
         GAM1_idf = self.cov_tensor
-        A = np.repeat(self.A_var, 10).reshape((len(self.freqs),5,2))
 
-        return np.einsum('dift,fid,difT-> tT', GAM1_idf, A, GAM1_idf) + np.diag(self.err)
+        # This is T_alpha\beta multiplied by Eqn 63
+        A = np.repeat(self.A_var, 10).reshape((len(self.freqs),5,2))
+        Sigma_ab = np.einsum('fid,dift,difT->ftT' A, GAM1_idf, GAM1_idf)
+
+        # This is Eqn 106
+        freq_terms = np.array( ( self.freq * self.gw(self.freqs) ) )
+        Sigma_sig = 1/(self.time[-1]-self.time[0]) * (
+                      np.einsum('f,ftT-> tT', freq_terms, Sigma_ab_norm)
+                    )
+        return Sigma_sig + np.diag(self.err**2)
+        #
+        #return np.einsum('dift,fid,difT-> tT', GAM1_idf, A, GAM1_idf) + np.diag(self.err)
 
     def time_delay_draw(self, sum_freq=True):
         """
