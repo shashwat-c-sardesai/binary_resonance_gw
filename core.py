@@ -629,6 +629,7 @@ class binary_evolution():
         else:
             return np.einsum('dif,adift-> aft', A, g1_aidf)
 
+    #### This needs to be corrected, and is not the correct format of Eqn 106 #####
     def covariance_matrix(self):
         """
         Construct the total covariance matrix for random
