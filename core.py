@@ -188,7 +188,7 @@ def h_ij_a():
     Eqn (58)
     """
     h = np.zeros((5,3,3))
-    h[0,0] = -2
+    h[0,0] = 2
     h[0,1,1] = -1
     h[0,2,2] = -1
     h[0,...] /= np.sqrt(3)
@@ -263,13 +263,13 @@ def e_mat_across_t(gammas):
 
     E = np.zeros((3,3,gammas.shape[1]))
     E[0,0,:] = np.cos(Omg)*np.cos(omg+f) - np.cos(inc)*np.sin(Omg)*np.sin(omg+f)
-    E[1,0,:] = np.sin(Omg)*np.cos(omg+f) + np.cos(inc)*np.cos(Omg)*np.sin(omg+f)
-    E[2,0,:] = np.sin(inc)*np.sin(omg+f)
-    E[0,1,:] = -np.cos(Omg)*np.sin(omg+f) - np.cos(inc)*np.sin(Omg)*np.cos(omg+f)
+    E[0,1,:] = np.sin(Omg)*np.cos(omg+f) + np.cos(inc)*np.cos(Omg)*np.sin(omg+f)
+    E[0,2,:] = np.sin(inc)*np.sin(omg+f)
+    E[1,0,:] = -np.cos(Omg)*np.sin(omg+f) - np.cos(inc)*np.sin(Omg)*np.cos(omg+f)
     E[1,1,:] = -np.sin(Omg)*np.sin(omg+f) + np.cos(inc)*np.cos(Omg)*np.cos(omg+f)
-    E[2,1,:] = np.sin(inc)*np.cos(omg+f)
-    E[0,2,:] = np.sin(inc)*np.sin(Omg)
-    E[1,2,:] = -np.sin(inc)*np.cos(Omg)
+    E[1,2,:] = np.sin(inc)*np.cos(omg+f)
+    E[2,0,:] = np.sin(inc)*np.sin(Omg)
+    E[2,1,:] = -np.sin(inc)*np.cos(Omg)
     E[2,2,:] = np.cos(inc)
     
     return E
@@ -294,7 +294,7 @@ def ddot_h_ad_ij(t_eval,f):
     Eqn (57), Eqn (39)
     """
     h = np.zeros((5,3,3))
-    h[0,0] = -2
+    h[0,0] = 2
     h[0,1,1] = -1
     h[0,2,2] = -1
     h[0,...] /= np.sqrt(3)
@@ -320,40 +320,6 @@ def F_aij_GW_across_t(t_eval, gammas, args):
     M_ij = M_mat_across_t(gammas, args)
 
     return 0.5*np.einsum('abt, bit, jt -> aijt', M_ij, e_ij, r_c)
-
-"""
-def gamma0_phi_dot(t, vec, args):
-
-    gamma0 = vec[:6]
-    phi = vec[6:]
-    phi = phi.reshape((6,6))
-
-    p,e,inc,Omg,omg,f = gamma0
-
-    m1,m2 = args
-    M_tot = m1+m2
-    
-    M = M_mat(gamma0, args)
-    E = E_mat(gamma0, args)
-
-    eta = m1*m2/M_tot**2
-    P = np.sqrt(4*np.pi**2/G/M_tot * (p/(1-e**2))**3)
-    g = np.sqrt(1-e**2)
-    vp = (2*np.pi*G*M_tot/P)**(1/3)
-    r = p/(1+e*np.cos(f))
-    
-    F_r = (2*np.pi/P)**2 * vp**2/g**8 * (1 + e*np.cos(f))**3 * (3 - eta - e**2*(1+3*eta) + e*(2-4*eta)*np.cos(f) + e**2 * (8-eta)*np.sin(f)**2/2)
-    F_theta = (2*np.pi/P)**2 * 2*e*vp**2/g**8 *np.sin(f) * (1+e*np.cos(f))**4 * (2-eta)
-    F_l = 0
-    acc = G*M_tot/c**4 * np.array([F_r, F_theta, F_l])
-    F_0 = np.einsum('ij,jk,k->i',M,E,acc)
-    F_0[-1] += np.sqrt(G*M_tot/p**3)*(1+e*np.cos(f))**2
-
-    F_0_ab = F0_ab_np(t, *gamma0, *args)
-    phidot = F_0_ab @ phi
-
-    return np.array([*F_0, *phidot.flatten()])
-"""
 
 def gamma0_phi_dot_corr(t, vec, args):
     """
